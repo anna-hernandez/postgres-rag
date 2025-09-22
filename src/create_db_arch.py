@@ -44,7 +44,6 @@ def create_cursor():
 
 
 def insert_embeddings(cursor, data_tuples):
-    
 
     # establish index. there are two at the moment in pgvector
     # hnsw and ivf flat
@@ -59,5 +58,7 @@ def insert_embeddings(cursor, data_tuples):
             dt,
         )
 
-def query_db():
-    cursor = 
+
+def query_db(cursor, query):
+    response = cursor.execute(query)
+    return response.fetchall()

@@ -3,7 +3,7 @@ from openai import OpenAI
 import os
 from uuid import uuid4
 from datetime import datetime
-from create_db_arch import insert_embeddings, create_cursor
+from create_db_arch import insert_embeddings, create_cursor, query_db
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -54,4 +54,7 @@ if __name__ == "__main__":
         embedding = get_embedding(text)
         formatted_content = format_content(text, embedding)
         cursor = create_cursor()
-        insert_embeddings([formatted_content])
+        insert_embeddings(cursor, [formatted_content])
+        query = "select * from data;"
+        response = query_db(cursor, query)
+        print(response)
