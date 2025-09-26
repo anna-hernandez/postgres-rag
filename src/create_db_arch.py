@@ -1,8 +1,7 @@
 import os
 import psycopg
 from dotenv import load_dotenv
-from pgvector.psycopg2 import register_vector
-from psycopg.rows import dict_row
+from pgvector.psycopg import Vector, register_vector
 
 
 load_dotenv()
@@ -24,8 +23,14 @@ def create_cursor():
         host=POSTGRES_HOST,
     )
     connection.autocommit = True
-    cursor = connection.cursor()
 
+    register_vector(connection)
+
+    cursor = connection.cursor()
+    return cursor
+
+
+def create_table(cursor):
     # install pgvector extension
     cursor.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
@@ -43,22 +48,47 @@ def create_cursor():
     return cursor
 
 
-def insert_embeddings(cursor, data_tuples):
+def insert_embeddings(cursor, sources_list):
+    """
+    Args:
+    sources_list: list(tuple)
+        list of source data to store
+    """
 
     # establish index. there are two at the moment in pgvector
     # hnsw and ivf flat
     # specify the index to use and how to calculate the distance
-    cursor.execute("CREATE INDEX ON data USING hnsw (embedding vector_l2_ops);")
+    cursor.execute("CREATE INDEX ON data USING hnsw (embedding vector_cosine_ops);")
 
     # insert embeddings into table
     # they need to be numpy arrays
-    for dt in data_tuples:
+
+    for item in sources_list:
         cursor.execute(
-            "INSERT INTO data (id, content, metadata, embedding) VALUES (%s, %s, %s, %s)",
-            dt,
+            "INSERT INTO data (id, content, metadata, embedding) VALUES (%s,%s,%s,%s)",
+            (item),
         )
 
 
 def query_db(cursor, query):
     response = cursor.execute(query)
     return response.fetchall()
+
+
+def semantic_search(cursor, query_embedding, limit):
+    # you have to convert the query embedding into a string for the query to work
+    query_embedding = Vector(query_embedding)
+
+    # cursor.execute(
+    #     f"SELECT * FROM data ORDER BY embedding <=> %s LIMIT %s;",
+    #     (query_embedding, limit),
+    # )
+    # results = cursor.fetchall()
+    cursor.execute(
+        "SELECT id, content, embedding <=> %s AS distance FROM data ORDER BY distance limit %s;",
+        (query_embedding, limit),
+    )
+    distances = cursor.fetchall()
+    print("Number of rows:", len(distances))
+    print("All rows:", distances)
+    return distances
