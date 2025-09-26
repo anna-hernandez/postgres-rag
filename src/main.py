@@ -50,40 +50,35 @@ def get_llm_response(query):
 
 
 def format_content(text, embedding):
-    # return {
-    #     "id": str(uuid4()),
-    #     "content": text,
-    #     "metadata": {
-    #         "created_at": datetime.now().isoformat(),
-    #     },
-    #     "embedding": embedding,
-    # }
-
-    return (
-        str(uuid4()),
-        text,
-        datetime.now().isoformat(),
-        Vector(embedding),
-    )
+    return {
+        "id": str(uuid4()),
+        "content": text,
+        "metadata": {
+            "created_at": datetime.now().isoformat(),
+        },
+        "embedding": Vector(embedding),
+    }
 
 
 if __name__ == "__main__":
 
-    # # for each text in the input data, create its embeddings
-    # # store embeddings and metadata into database
-    # sources = []
-    # for text in data:
-    #     embedding = get_embedding(text)
-    #     formatted_content = format_content(text, embedding)
-    #     sources.append(formatted_content)
+    # for each text in the input data, create its embeddings
+    # store embeddings and metadata into database
+    sources = []
+    for text in data:
+        embedding = get_embedding(text)
+
+        # formatted_content is a dictionary
+        formatted_content = format_content(text, embedding)
+        sources.append(formatted_content)
 
     # create database
     cursor = create_cursor()
-    # create_table(cursor)
-    # # insert embeddings in database
-    # # formatted_content is a list of tuples
-    # # each tuple is (id, content, metadata, embedding)
-    # insert_embeddings(cursor, sources)
+    create_table(cursor)
+    # insert embeddings in database
+    # formatted_content is a list of tuples
+    # each tuple is (id, content, metadata, embedding)
+    insert_embeddings(cursor, sources)
 
     # 1. retrieve response
 

@@ -51,7 +51,7 @@ def create_table(cursor):
 def insert_embeddings(cursor, sources_list):
     """
     Args:
-    sources_list: list(tuple)
+    sources_list: list(dict)
         list of source data to store
     """
 
@@ -66,7 +66,12 @@ def insert_embeddings(cursor, sources_list):
     for item in sources_list:
         cursor.execute(
             "INSERT INTO data (id, content, metadata, embedding) VALUES (%s,%s,%s,%s)",
-            (item),
+            (
+                item["id"],
+                item["content"],
+                item["metadata"]["created_at"],
+                item["embedding"],
+            ),
         )
 
 
