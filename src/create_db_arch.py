@@ -84,11 +84,6 @@ def semantic_search(cursor, query_embedding, limit):
     # you have to convert the query embedding into a string for the query to work
     query_embedding = Vector(query_embedding)
 
-    # cursor.execute(
-    #     f"SELECT * FROM data ORDER BY embedding <=> %s LIMIT %s;",
-    #     (query_embedding, limit),
-    # )
-    # results = cursor.fetchall()
     cursor.execute(
         "SELECT id, content, embedding <=> %s AS distance FROM data ORDER BY distance limit %s;",
         (query_embedding, limit),
