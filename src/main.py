@@ -92,38 +92,38 @@ if __name__ == "__main__":
 
     query = "i go to the cinema"
 
-    # print("\n\nKeyword search")
-    # print("----------------------")
-    # # TODO: set rank threshold
-    # response = keyword_search(cursor, query, limit=2)
-    # for row in response:
-    #     print("id:", row[0], "distance:", row[1])
+    print("\n\nKeyword search")
+    print("----------------------")
+    # TODO: set rank threshold
+    response = keyword_search(cursor, query, limit=2)
+    for row in response:
+        print("id:", row[0], "distance:", row[1])
 
-    # print("\n\nSemantic search distances")
-    # print("----------------------")
-    # response = semantic_search(client, cursor, query, 2)
-    # for row in response:
-    #     print("id:", row[0], "distance:", row[1])
+    print("\n\nSemantic search distances")
+    print("----------------------")
+    response = semantic_search(client, cursor, query, 2)
+    for row in response:
+        print("id:", row[0], "distance:", row[1])
 
     print("\n\nHybrid search")
     print("----------------------")
     response = hybrid_search(client, cursor, query, limit=2, enforce_limit=True)
     print(response)
 
-    # # 2. augment original query
-    # query += f"\nRelevant data:"
-    # for idx, item in enumerate(distances):
-    #     print("id:", item[0], "content:", item[1], "distance:", item[2])
-    #     query += f"\n{item[1]}"
+    # 2. augment original query
+    query += f"\nRelevant data:"
+    for idx, item in enumerate(response):
+        print("id:", item)
+        query += f"\n{item}"
 
-    # print("\n\nAugmented query")
-    # print("----------------------")
-    # print(query)
+    print("\n\nAugmented query")
+    print("----------------------")
+    print(query)
 
-    # response = get_llm_response(
-    #     query=query,
-    # )
-    # print("\n\nResponse")
-    # print("----------------------")
+    response = get_llm_response(
+        query=query,
+    )
+    print("\n\nResponse")
+    print("----------------------")
 
-    # print(response)
+    print(response)
