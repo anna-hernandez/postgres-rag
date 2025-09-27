@@ -178,8 +178,21 @@ def hybrid_search(client, cursor, query, limit=5, enforce_limit=True):
     semantic_results = semantic_search(client, cursor, query, limit=limit)
 
     # convert to numpy arrays to merge easily
+    # add a column to indicate the search method
     semantic_results = np.array(semantic_results)
+    semantic_results = np.column_stack(
+        (
+            semantic_results,
+            np.array(["semantic_search"] * semantic_results.shape[0]),
+        )
+    )
     keyword_results = np.array(keyword_results)
+    keyword_results = np.column_stack(
+        (
+            keyword_results,
+            np.array(["keyword_search"] * keyword_results.shape[0]),
+        )
+    )
 
     # as long as you have enough records in your database,
     # semantic search will always return `limit` results
