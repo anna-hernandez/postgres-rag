@@ -9,6 +9,9 @@ from create_db_arch import (
     create_cursor,
     query_db,
     semantic_search,
+    keyword_search,
+    get_embedding,
+    hybrid_search,
 )
 import numpy as np
 import sys
@@ -24,20 +27,6 @@ data = [
     "tomorrow we'll go to the pool",
     "my brother called a week ago",
 ]
-
-
-def get_embedding(text_to_embed):
-    # Embed a line of text
-
-    response = client.embeddings.create(
-        model="text-embedding-ada-002",
-        input=text_to_embed,
-        encoding_format="float",
-    )
-    # Extract the AI output embedding as a list of floats
-    embedding = response.data[0].embedding
-
-    return embedding
 
 
 def get_llm_response(query):
@@ -62,54 +51,79 @@ def format_content(text, embedding):
 
 if __name__ == "__main__":
 
-    # for each text in the input data, create its embeddings
-    # store embeddings and metadata into database
-    sources = []
-    for text in data:
-        embedding = get_embedding(text)
+    # 0. prepare data
+    # data is a list of strings
+    create_db = False
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--create_db":
+            create_db = True
 
-        # formatted_content is a dictionary
-        formatted_content = format_content(text, embedding)
-        sources.append(formatted_content)
-
-    # create database
+    # crete connection (cursor) to database
+    # if --create_db flag is passed, create the database and insert the data
+    # otherwise, just connect to the database
     cursor = create_cursor()
-    create_table(cursor)
-    # insert embeddings in database
-    # formatted_content is a list of tuples
-    # each tuple is (id, content, metadata, embedding)
-    insert_embeddings(cursor, sources)
+    if create_db:
+        print("Creating database...")
+
+        # for each text in the input data, create its embeddings
+        # store embeddings and metadata into database
+        sources = []
+        for text in data:
+            embedding = get_embedding(client, text)
+
+            # formatted_content is a dictionary
+            formatted_content = format_content(text, embedding)
+            sources.append(formatted_content)
+
+        # create database table
+        create_table(cursor)
+        # insert embeddings in database
+        # formatted_content is a list of tuples
+        # each tuple is (id, content, metadata, embedding)
+        insert_embeddings(cursor, sources)
 
     # 1. retrieve response
 
     query = "select * from data;"
     response = query_db(cursor, query)
-    print("\n\nRegular SQL query")
+    print("\n\nSQL query")
     print("----------------------")
     print(response)
 
-    query = "What do i like to do?"
-    query_embedding = get_embedding(query)
-    distances = semantic_search(cursor, query_embedding, 2)
-    print("\n\nSemantic search distances")
+    query = "i go to the cinema"
+
+    # print("\n\nKeyword search")
+    # print("----------------------")
+    # # TODO: set rank threshold
+    # response = keyword_search(cursor, query, limit=2)
+    # for row in response:
+    #     print("id:", row[0], "distance:", row[1])
+
+    # print("\n\nSemantic search distances")
+    # print("----------------------")
+    # response = semantic_search(client, cursor, query, 2)
+    # for row in response:
+    #     print("id:", row[0], "distance:", row[1])
+
+    print("\n\nHybrid search")
     print("----------------------")
-    for row in distances:
-        print("id:", row[0], "content:", row[1], "distance:", row[2])
-
-    # 2. augment original query
-    query += f"\nRelevant data:"
-    for idx, item in enumerate(distances):
-        print("id:", item[0], "content:", item[1], "distance:", item[2])
-        query += f"\n{item[1]}"
-
-    print("\n\nAugmented query")
-    print("----------------------")
-    print(query)
-
-    response = get_llm_response(
-        query=query,
-    )
-    print("\n\nResponse")
-    print("----------------------")
-
+    response = hybrid_search(client, cursor, query, limit=2, enforce_limit=True)
     print(response)
+
+    # # 2. augment original query
+    # query += f"\nRelevant data:"
+    # for idx, item in enumerate(distances):
+    #     print("id:", item[0], "content:", item[1], "distance:", item[2])
+    #     query += f"\n{item[1]}"
+
+    # print("\n\nAugmented query")
+    # print("----------------------")
+    # print(query)
+
+    # response = get_llm_response(
+    #     query=query,
+    # )
+    # print("\n\nResponse")
+    # print("----------------------")
+
+    # print(response)

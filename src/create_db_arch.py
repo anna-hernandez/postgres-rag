@@ -2,7 +2,7 @@ import os
 import psycopg
 from dotenv import load_dotenv
 from pgvector.psycopg import Vector, register_vector
-
+import numpy as np
 
 load_dotenv()
 
@@ -75,20 +75,129 @@ def insert_embeddings(cursor, sources_list):
         )
 
 
+def create_keyword_index(cursor):
+    # create a tsvector column for full-text search
+    # if it doesn't already exist
+    # this column is created from the content column
+    # it is a generated column, so it is always up to date
+    # the keyword STORED means that the values of this column
+    # are stored on disk, not computed on the fly
+    cursor.execute(
+        """
+                   ALTER TABLE data
+                   ADD COLUMN IF NOT EXISTS search_vector tsvector 
+                   GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;
+                   """
+    )
+
+    # add an index to the tsvector column
+    # if it doesn't already exist
+    cursor.execute(
+        """CREATE INDEX IF NOT EXISTS search_idx
+                     ON data using GIN (search_vector);"""
+    )
+    return cursor
+
+
 def query_db(cursor, query):
     response = cursor.execute(query)
     return response.fetchall()
 
 
-def semantic_search(cursor, query_embedding, limit):
+def get_embedding(client, text_to_embed):
+    # Embed a line of text
+
+    response = client.embeddings.create(
+        model="text-embedding-ada-002",
+        input=text_to_embed,
+        encoding_format="float",
+    )
+    # Extract the AI output embedding as a list of floats
+    embedding = response.data[0].embedding
+
+    return embedding
+
+
+def semantic_search(client, cursor, query, limit):
     # you have to convert the query embedding into a string for the query to work
+    query_embedding = get_embedding(client, query)
     query_embedding = Vector(query_embedding)
 
     cursor.execute(
         "SELECT id, content, embedding <=> %s AS distance FROM data ORDER BY distance limit %s;",
         (query_embedding, limit),
     )
+
+    # get all the results
+    # `distances` is a list of tuples
+    # each tuple is (id, embedding, distance)
     distances = cursor.fetchall()
-    print("Number of rows:", len(distances))
-    print("All rows:", distances)
     return distances
+
+
+def keyword_search(cursor, query, limit=5):
+    # create the keyword index if it doesn't exist
+    cursor = create_keyword_index(cursor)
+    query = "go"
+    query = f"""
+    SELECT id, content, ts_rank(to_tsvector('english', content), websearch_to_tsquery('{query}')) as rank
+    from data 
+    where search_vector @@ websearch_to_tsquery('{query}')
+    order by rank desc
+    limit {limit};
+    """
+
+    response = cursor.execute(query)
+
+    # get all the results
+    # `response.fetchall()` is a list of tuples
+    # each tuple is (id, content, rank)
+    return response.fetchall()
+
+
+def hybrid_search(client, cursor, query, limit=5, enforce_limit=True):
+    """
+    Combine keyword search and semantic search
+
+    Args:
+    client: OpenAI client
+        client to use to get embeddings
+    cursor: psycopg cursor
+        cursor to use to query the database
+    query: str
+        query to search for in the database
+    limit: int
+        number of results to return from each search method
+
+    Returns:
+    list of unique content from both search methods
+    """
+
+    # combine keyword search and semantic search
+    keyword_results = keyword_search(cursor, query, limit=limit)
+    semantic_results = semantic_search(client, cursor, query, limit=limit)
+
+    # convert to numpy arrays to merge easily
+    semantic_results = np.array(semantic_results)
+    keyword_results = np.array(keyword_results)
+
+    # as long as you have enough records in your database,
+    # semantic search will always return `limit` results
+    # but keyword search might return less than `limit` results
+    # if there are not enough matches. In that case,
+    # return only the semantic search results
+    if len(keyword_results) == 0:
+        results = semantic_results
+    else:
+        results = np.hstack(
+            (semantic_results[:, 1], keyword_results[:, 1]),
+        ).tolist()
+
+    # remove duplicates and return as a list
+    results = np.unique(results).tolist()
+
+    # if you want to enforce the limit, return only the first `limit` results
+    if enforce_limit:
+        results = results[:limit]
+
+    return results
