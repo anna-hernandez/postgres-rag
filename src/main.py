@@ -1,14 +1,15 @@
 from dotenv import load_dotenv
 from openai import OpenAI
 import os
-from uuid import uuid4
 from datetime import datetime
-from create_db_arch import DatabaseConnection, get_embeddings
-import numpy as np
+from create_db_arch import DatabaseConnection
+from utils import get_embeddings, format_content, get_llm_response
 import sys
-from pgvector.psycopg import Vector
 
 load_dotenv()
+# TODO: check where is best to instantiate the client
+# it could be here, or inside the functions that need it
+# or it could be passed as an argument to the functions that need it
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
@@ -18,35 +19,6 @@ data = [
     "tomorrow we'll go to the pool",
     "my brother called a week ago",
 ]
-
-
-def get_llm_response(query):
-    response = client.responses.create(
-        model="gpt-4o-mini",
-        input=query,
-    )
-
-    return response.output_text
-
-
-def format_content(texts, embeddings):
-    """formats the content to be inserted into the database.
-    Args:
-        texts (list): list of strings
-        embeddings (list): list of lists of floats
-    Returns:
-        list: list of dictionaries with keys: id, content,
-        created_at, embedding
-    """
-
-    ids = [str(uuid4()) for _ in texts]
-    embedding_vectors = [Vector(e) for e in embeddings]
-    dates = [datetime.now().isoformat()] * len(texts)
-
-    return [
-        {"id": i, "content": t, "created_at": d, "embedding": e}
-        for (i, t, d, e) in zip(ids, texts, dates, embedding_vectors)
-    ]
 
 
 def main(create_db, query_type="hybrid"):
@@ -132,6 +104,7 @@ def main(create_db, query_type="hybrid"):
         print(query)
 
         response = get_llm_response(
+            client=client,
             query=query,
         )
     print("\nResponse:")

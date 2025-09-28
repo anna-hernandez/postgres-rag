@@ -91,3 +91,5 @@ Future improvements
 - add logging
 - store answers in database for future review. If app, add button with thumbs up and down to record user reply. use already computed answers as cache
 - use structure outputs
+- complete docstrings
+- add ci/cd

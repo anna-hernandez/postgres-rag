@@ -1,21 +1,7 @@
-import os
 import psycopg
 from pgvector.psycopg import Vector, register_vector
 import numpy as np
-
-
-def get_embeddings(client, texts):
-    # Embed a line of text
-
-    response = client.embeddings.create(
-        model="text-embedding-ada-002",
-        input=texts,
-        encoding_format="float",
-    )
-    # Extract the AI output embedding as a list of floats
-    embeddings = [i.embedding for i in response.data]
-
-    return embeddings
+from utils import get_embeddings
 
 
 class DatabaseConnection:
