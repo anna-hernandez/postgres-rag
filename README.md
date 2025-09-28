@@ -93,3 +93,4 @@ Future improvements
 - use structure outputs
 - complete docstrings
 - add ci/cd
+- add testing

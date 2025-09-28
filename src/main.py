@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import os
 from datetime import datetime
-from create_db_arch import DatabaseConnection
+from database import DatabaseConnection
 from utils import get_embeddings, format_content, get_llm_response
 import sys
 
