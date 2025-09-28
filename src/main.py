@@ -3,16 +3,7 @@ from openai import OpenAI
 import os
 from uuid import uuid4
 from datetime import datetime
-from create_db_arch import (
-    create_table,
-    insert_embeddings,
-    create_cursor,
-    query_db,
-    semantic_search,
-    keyword_search,
-    get_embedding,
-    hybrid_search,
-)
+from create_db_arch import DatabaseConnection, get_embeddings
 import numpy as np
 import sys
 from pgvector.psycopg import Vector
@@ -38,92 +29,124 @@ def get_llm_response(query):
     return response.output_text
 
 
-def format_content(text, embedding):
-    return {
-        "id": str(uuid4()),
-        "content": text,
-        "metadata": {
-            "created_at": datetime.now().isoformat(),
-        },
-        "embedding": Vector(embedding),
-    }
+def format_content(texts, embeddings):
+    """formats the content to be inserted into the database.
+    Args:
+        texts (list): list of strings
+        embeddings (list): list of lists of floats
+    Returns:
+        list: list of dictionaries with keys: id, content,
+        created_at, embedding
+    """
+
+    ids = [str(uuid4()) for _ in texts]
+    embedding_vectors = [Vector(e) for e in embeddings]
+    dates = [datetime.now().isoformat()] * len(texts)
+
+    return [
+        {"id": i, "content": t, "created_at": d, "embedding": e}
+        for (i, t, d, e) in zip(ids, texts, dates, embedding_vectors)
+    ]
 
 
-if __name__ == "__main__":
+def main(create_db, query_type="hybrid"):
 
-    # 0. prepare data
-    # data is a list of strings
-    create_db = False
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--create_db":
-            create_db = True
+    # create connection (cursor) to database
+    # the connection parameters are read from environment variables
+    # the cursor is created regardless of whether the database is created or not
+    # the cursor is used to execute SQL queries
+    cursor = DatabaseConnection(
+        db=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+        host=os.getenv("POSTGRES_HOST"),
+        port=5432,
+    )
 
-    # crete connection (cursor) to database
     # if --create_db flag is passed, create the database and insert the data
-    # otherwise, just connect to the database
-    cursor = create_cursor()
+    # (otherwise, just connect to the database)
     if create_db:
-        print("Creating database...")
+
+        # create database table
+        print("Createing database table...")
+
+        cursor.create_table()
+
+        print("Getting source embeddings...")
 
         # for each text in the input data, create its embeddings
         # store embeddings and metadata into database
-        sources = []
-        for text in data:
-            embedding = get_embedding(client, text)
+        embeddings = get_embeddings(client, data)
 
-            # formatted_content is a dictionary
-            formatted_content = format_content(text, embedding)
-            sources.append(formatted_content)
+        # formatted_content is a dictionary
+        formatted_content = format_content(data, embeddings)
 
-        # create database table
-        create_table(cursor)
         # insert embeddings in database
         # formatted_content is a list of tuples
         # each tuple is (id, content, metadata, embedding)
-        insert_embeddings(cursor, sources)
+        cursor.insert_embeddings(formatted_content)
+    else:
+        print("Connecting to existing database...")
 
     # 1. retrieve response
+    if query_type == "sql":
+        print("Running SQL query...")
+        # simple SQL query
+        query = "select * from data;"
+        response = cursor.query_db(query)
 
-    query = "select * from data;"
-    response = query_db(cursor, query)
-    print("\n\nSQL query")
-    print("----------------------")
+    elif query_type in ("keyword", "semantic", "hybrid"):
+        query = "go"
+        if query_type == "keyword":
+            print("Running keyword search...")
+            # TODO: set rank threshold
+            response = cursor.keyword_search(query, limit=2)
+
+        elif query_type == "semantic":
+            print("Running semantic search...")
+            # TODO: set distance threshold
+            response = cursor.semantic_search(client, query, 2)
+
+        elif query_type == "hybrid":
+            print("Running hybrid search...")
+            response = (
+                cursor.hybrid_search(
+                    client,
+                    query,
+                    limit=2,
+                    enforce_limit=True,
+                ),
+            )
+        # TODO: set distance threshold
+        # TODO: log this
+        for row in response:
+            print("id:", row[0], "content:", row[1], "distance:", row[2])
+
+        # 2. augment original query
+        print("Building augmented query...")
+        query += f"\nRelevant data:"
+        for idx, item in enumerate(response):
+            print("id:", item[1])
+            query += f"\n{item[1]}"
+        # TODO: log this
+        print(query)
+
+        response = get_llm_response(
+            query=query,
+        )
+    print("\nResponse:")
     print(response)
 
-    query = "i go to the cinema"
 
-    print("\n\nKeyword search")
-    print("----------------------")
-    # TODO: set rank threshold
-    response = keyword_search(cursor, query, limit=2)
-    for row in response:
-        print("id:", row[0], "distance:", row[1])
+if __name__ == "__main__":
+    # 0. prepare data
+    # data is a list of strings
+    create_db = False
+    query_type = "hybrid"
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--create_db":
+            create_db = True
+        else:
+            query_type = sys.argv[1][2:]
 
-    print("\n\nSemantic search distances")
-    print("----------------------")
-    response = semantic_search(client, cursor, query, 2)
-    for row in response:
-        print("id:", row[0], "distance:", row[1])
-
-    print("\n\nHybrid search")
-    print("----------------------")
-    response = hybrid_search(client, cursor, query, limit=2, enforce_limit=True)
-    print(response)
-
-    # 2. augment original query
-    query += f"\nRelevant data:"
-    for idx, item in enumerate(response):
-        print("id:", item)
-        query += f"\n{item}"
-
-    print("\n\nAugmented query")
-    print("----------------------")
-    print(query)
-
-    response = get_llm_response(
-        query=query,
-    )
-    print("\n\nResponse")
-    print("----------------------")
-
-    print(response)
+    main(create_db, query_type)
