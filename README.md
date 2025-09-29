@@ -1,7 +1,3 @@
-the simplest rag system but it shows that it can be build without complexity with open source libraries.
-many more features and optimisations can be build on top but the concept is simple enough.
-many things are left to do, like reorganising the repo, etc but the core functions are there
-
 # RAG Postgres with Docker
 
 This repository sets up a PostgreSQL database with the [pgvector](https://github.com/pgvector/pgvector) extension using Docker Compose. The setup is intended for projects that require vector search capabilities, such as those using OpenAI embeddings.
@@ -17,11 +13,6 @@ Demonstrate the simplest implementation of RAG with an open source vector store.
 - Persistent storage using Docker volumes.
 
 ## Getting Started
-
-### Prerequisites
-
-- [Docker](https://www.docker.com/)
-- [Docker Compose](https://docs.docker.com/compose/)
 
 ### Setup
 
@@ -52,7 +43,7 @@ python3 src/main.py
 ## Keyword Search
 I implemented different approaches to text search, as explained below together with their performance characteristics.
 
-## Regular Keyword Matching (LIKE)
+## Regular Keyword Matching
 
 Regular keyword matching using the `LIKE` operator has several limitations, namely it is case sensitive, scanninng through database records is sequential, and it cannot be indexed.
 Hence, it is not suitable for large datasets due to poor scalability. Postgres however, has build-in methods for full-text search.
@@ -96,6 +87,7 @@ There are two input parameters:
 - CI/CD: Automate deployment and testing workflows.
 - Testing: Add unit and integration tests.
 - Chat history: Currently not implemented; add persistent multi-turn conversation support.
+- Run application in another docker container
 
 ## Known Bugs
 
