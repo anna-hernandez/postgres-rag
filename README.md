@@ -86,11 +86,27 @@ There are two input parameters:
 - **`--create_db`**: boolen that, if True, indicates that the database needs to be built from scratch given some input sources; if False, otherwise, and hence it is only used for querying
 - **`--query_tybe`**: string indicating the type of search, options are `sql` (for a regular, non-text based, SQL query), `semantic`, `keyword`, `hybrid`
 
-Future improvements
-- one could decide to use an agent to decide which type of query is more appropriate at each time (sql, semantic, keyword, hybrid)
-- add logging
-- store answers in database for future review. If app, add button with thumbs up and down to record user reply. use already computed answers as cache
-- use structure outputs
-- complete docstrings
-- add ci/cd
-- add testing
+## Future Improvements
+
+- Query routing with an agent: Automatically decide whether to use SQL, semantic, keyword, or hybrid search depending on the query.
+- Logging: Add structured logging for debugging and monitoring.
+- Answer persistence: Store responses in a database for future review. In an app, provide thumbs-up / thumbs-down feedback buttons and use the existing answers as a cache.
+- Structured outputs: Standardize model responses for easier downstream processing.
+- Documentation: Complete missing docstrings and improve inline explanations. 
+- CI/CD: Automate deployment and testing workflows.
+- Testing: Add unit and integration tests.
+- Chat history: Currently not implemented; add persistent multi-turn conversation support.
+
+## Known Bugs
+
+- **Rapid queries bug**: When new queries are issued very close in time (e.g., in Streamlit), the returned response sometimes contains stringified distance values instead of model output.
+Example:
+```
+Connecting to existing database...
+Running hybrid search...
+response:  (['0.13708364963530884', '0.19850201597820527'],)
+Building augmented query...
+yes, what did i do yesterday?
+Relevant data:
+['0.13708364963530884', '0.19850201597820527']
+```

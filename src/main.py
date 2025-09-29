@@ -21,7 +21,7 @@ data = [
 ]
 
 
-def main(create_db, query_type="hybrid"):
+def rag(create_db, query, query_type="hybrid"):
 
     # create connection (cursor) to database
     # the connection parameters are read from environment variables
@@ -68,7 +68,6 @@ def main(create_db, query_type="hybrid"):
         response = cursor.query_db(query)
 
     elif query_type in ("keyword", "semantic", "hybrid"):
-        query = "go"
         if query_type == "keyword":
             print("Running keyword search...")
             # TODO: set rank threshold
@@ -92,14 +91,13 @@ def main(create_db, query_type="hybrid"):
         # TODO: set distance threshold
         # TODO: log this
         for row in response:
-            print("id:", row[0], "content:", row[1], "distance:", row[2])
+            print("response: ", response)
 
         # 2. augment original query
         print("Building augmented query...")
         query += f"\nRelevant data:"
         for idx, item in enumerate(response):
-            print("id:", item[1])
-            query += f"\n{item[1]}"
+            query += f"\n{item}"
         # TODO: log this
         print(query)
 
@@ -108,12 +106,16 @@ def main(create_db, query_type="hybrid"):
             query=query,
         )
     print("\nResponse:")
-    print(response)
+    return response
 
 
 if __name__ == "__main__":
     # 0. prepare data
     # data is a list of strings
+    # TODO: load data from file(s)
+    # TODO: load data from url(s)
+    # TODO: check if data is already in database
+    # instead of relying on the user to pass the --create_db flag
     create_db = False
     query_type = "hybrid"
     if len(sys.argv) > 1:
@@ -122,4 +124,5 @@ if __name__ == "__main__":
         else:
             query_type = sys.argv[1][2:]
 
-    main(create_db, query_type)
+    query = "What did we do yesterday?"
+    rag(create_db, query, query_type)
